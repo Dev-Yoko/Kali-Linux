@@ -55,6 +55,7 @@ jobs:
         run: |
           echo "Determining if build is necessary based on changes and AI decision..."
           
+          # Check for changes in the 'live-build-config' directory and previous commit
           if git rev-parse HEAD^ >/dev/null 2>&1 && git diff --name-only HEAD^ HEAD | grep -q "live-build-config/"; then
             echo "::set-output name=run_build::true"
             echo "::set-output name=build_type::${{ steps.ai-analysis.outputs.decision }}"
@@ -66,10 +67,10 @@ jobs:
     name: Adaptive Caching Based on Build Type
     runs-on: ubuntu-latest
     needs: evaluate-changes
+    if: needs.evaluate-changes.outputs.run_build == 'true'
     outputs:
       cache_hit: ${{ steps.cache-result.outputs.cache_hit }}
     
-    if: needs.evaluate-changes.outputs.run_build == 'true'
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v3
@@ -168,6 +169,7 @@ jobs:
     name: Create Release and Upload ISO
     runs-on: ubuntu-latest
     needs: dynamic-environment-provisioning
+    if: needs.evaluate-changes.outputs.run_build == 'true'
 
     steps:
       - name: Create GitHub Release

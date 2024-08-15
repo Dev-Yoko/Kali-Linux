@@ -55,7 +55,7 @@ jobs:
         run: |
           echo "Determining if build is necessary based on changes and AI decision..."
           
-          if git diff --name-only HEAD^ HEAD | grep -q "live-build-config/"; then
+          if git rev-parse HEAD^ >/dev/null 2>&1 && git diff --name-only HEAD^ HEAD | grep -q "live-build-config/"; then
             echo "::set-output name=run_build::true"
             echo "::set-output name=build_type::${{ steps.ai-analysis.outputs.decision }}"
           else

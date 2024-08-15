@@ -1,0 +1,190 @@
+name: Ultimate Dynamic Build and Release of Kali Linux ISO
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - "release/*"
+  schedule:
+    - cron: '0 0 * * 0'  # Runs every Sunday at midnight
+
+jobs:
+  evaluate-changes:
+    name: Evaluate Changes and AI-Predicted Build Strategy
+    runs-on: ubuntu-latest
+    outputs:
+      run_build: ${{ steps.determine-run.outputs.run_build }}
+      build_type: ${{ steps.determine-run.outputs.build_type }}
+      ai_decision: ${{ steps.ai-analysis.outputs.decision }}
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: AI-Driven Build Strategy
+        id: ai-analysis
+        run: |
+          # Simulate an AI-driven analysis to predict the optimal build strategy
+          echo "Running AI analysis on repository changes..."
+          
+          # Example AI logic: Could integrate with an external ML model API or local script
+          CHANGE_IMPACT=$(git diff --name-only HEAD^ HEAD | wc -l)
+          
+          if [ "$CHANGE_IMPACT" -gt 10 ]; then
+            echo "AI Decision: Full Build"
+            echo "::set-output name=decision::full"
+          elif [ "$CHANGE_IMPACT" -gt 5 ]; then
+            echo "AI Decision: Standard Build"
+            echo "::set-output name=decision::standard"
+          else
+            echo "AI Decision: Minimal Build"
+            echo "::set-output name=decision::minimal"
+          fi
+
+      - name: Determine Whether to Run Build
+        id: determine-run
+        run: |
+          echo "Determining if build is necessary based on changes and AI decision..."
+          
+          if git diff --name-only HEAD^ HEAD | grep -q "live-build-config/"; then
+            echo "::set-output name=run_build::true"
+            echo "::set-output name=build_type::${{ steps.ai-analysis.outputs.decision }}"
+          else
+            echo "::set-output name=run_build::false"
+          fi
+
+  adaptive-caching:
+    name: Adaptive Caching Based on Build Type
+    runs-on: ubuntu-latest
+    needs: evaluate-changes
+    outputs:
+      cache_hit: ${{ steps.cache-result.outputs.cache_hit }}
+    
+    if: needs.evaluate-changes.outputs.run_build == 'true'
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Setup Caching Parameters
+        id: cache-setup
+        run: |
+          if [ "${{ needs.evaluate-changes.outputs.build_type }}" = "full" ]; then
+            echo "::set-output name=cache_key::${{ runner.os }}-full-build-${{ hashFiles('**/build.sh') }}"
+          else
+            echo "::set-output name=cache_key::${{ runner.os }}-standard-build-${{ hashFiles('**/build.sh') }}"
+          fi
+
+      - name: Adaptive Cache Dependencies
+        id: cache-result
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache
+            /var/cache/apt
+          key: ${{ steps.cache-setup.outputs.cache_key }}
+          restore-keys: |
+            ${{ runner.os }}-full-build-
+            ${{ runner.os }}-standard-build-
+
+  build-iso:
+    name: Prioritized ISO Build
+    runs-on: ubuntu-latest
+    needs: [evaluate-changes, adaptive-caching]
+    if: needs.evaluate-changes.outputs.run_build == 'true'
+    strategy:
+      matrix:
+        architecture: [amd64, arm64]
+        include:
+          - architecture: amd64
+            priority: high
+          - architecture: arm64
+            priority: low
+    
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Use Cached Dependencies
+        if: needs.adaptive-caching.outputs.cache_hit == 'true'
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cache
+            /var/cache/apt
+          key: ${{ needs.adaptive-caching.outputs.cache_key }}
+          restore-keys: |
+            ${{ runner.os }}-full-build-
+            ${{ runner.os }}-standard-build-
+
+      - name: Build Kali Linux ISO
+        run: |
+          cd live-build-config
+          echo "Priority: ${{ matrix.priority }}"
+
+          if [ "${{ needs.evaluate-changes.outputs.build_type }}" = "full" ]; then
+            echo "Building full ISO for ${{ matrix.architecture }}..."
+            sudo ./build.sh --architecture ${{ matrix.architecture }} --distribution kali-rolling --variant full --verbose
+          elif [ "${{ needs.evaluate-changes.outputs.build_type }}" = "standard" ]; then
+            echo "Building standard ISO for ${{ matrix.architecture }}..."
+            sudo ./build.sh --architecture ${{ matrix.architecture }} --distribution kali-rolling --variant standard --verbose
+          else
+            echo "Building minimal ISO for ${{ matrix.architecture }}..."
+            sudo ./build.sh --architecture ${{ matrix.architecture }} --distribution kali-rolling --variant minimal --verbose
+          fi
+
+      - name: Upload ISO to Artifact Store
+        uses: actions/upload-artifact@v3
+        with:
+          name: kali-linux-${{ matrix.architecture }}-iso
+          path: live-build-config/images/*.iso
+
+  dynamic-environment-provisioning:
+    name: Dynamic Environment Provisioning
+    runs-on: ubuntu-latest
+    needs: build-iso
+    if: needs.evaluate-changes.outputs.run_build == 'true'
+
+    steps:
+      - name: Provision Dynamic Environment (if needed)
+        run: |
+          echo "Provisioning dynamic environment based on build results..."
+          
+          # Example logic: Provision additional resources if build is 'full'
+          if [ "${{ needs.evaluate-changes.outputs.build_type }}" = "full" ]; then
+            echo "Provisioning additional servers..."
+            # Add server provisioning logic here
+          fi
+
+  release:
+    name: Create Release and Upload ISO
+    runs-on: ubuntu-latest
+    needs: dynamic-environment-provisioning
+
+    steps:
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        with:
+          tag_name: 'kali-linux-latest'
+          release_name: 'Kali Linux Latest ISO'
+          draft: false
+          prerelease: false
+
+      - name: Download ISO Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: kali-linux-${{ matrix.architecture }}-iso
+          path: ./downloaded-iso/
+
+      - name: Upload ISO to Release
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./downloaded-iso/*.iso
+          asset_name: kali-linux-${{ matrix.architecture }}-latest.iso
+          asset_content_type: application/octet-stream

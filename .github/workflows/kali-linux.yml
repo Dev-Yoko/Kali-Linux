@@ -25,12 +25,20 @@ jobs:
       - name: AI-Driven Build Strategy
         id: ai-analysis
         run: |
-          # Simulate an AI-driven analysis to predict the optimal build strategy
           echo "Running AI analysis on repository changes..."
           
-          # Example AI logic: Could integrate with an external ML model API or local script
-          CHANGE_IMPACT=$(git diff --name-only HEAD^ HEAD | wc -l)
+          # Check if a previous commit exists
+          if git rev-parse HEAD^ >/dev/null 2>&1; then
+            # Calculate the number of changed files between HEAD and the previous commit
+            CHANGE_IMPACT=$(git diff --name-only HEAD^ HEAD | wc -l)
+          else
+            # If there's no previous commit, set the change impact to 0
+            CHANGE_IMPACT=0
+          fi
           
+          echo "Change Impact: $CHANGE_IMPACT"
+
+          # AI logic for determining the build strategy
           if [ "$CHANGE_IMPACT" -gt 10 ]; then
             echo "AI Decision: Full Build"
             echo "::set-output name=decision::full"

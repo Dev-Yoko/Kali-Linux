@@ -17,17 +17,17 @@ jobs:
           sudo apt update
           sudo apt install -y git build-essential devscripts debhelper
 
-      - name: Clone Kali Linux repository
+      - name: Clone Kali Linux live-build-config repository
         run: |
-          git clone https://gitlab.com/kalilinux/build-scripts.git
-          cd build-scripts
+          git clone https://gitlab.com/kalilinux/build-scripts/live-build-config.git
+          cd live-build-config
 
       - name: Build Kali Linux ISO
         run: |
          ./build.sh --variant kali-linux --arch amd64 --iso
 
       - name: Upload ISO to release
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: kali-linux-iso
           path: kali-linux-*.iso

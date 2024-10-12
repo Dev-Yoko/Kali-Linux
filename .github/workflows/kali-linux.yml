@@ -15,16 +15,16 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y git build-essential devscripts debhelper live-build simple-cdd cdebootstrap curl
+          sudo apt install -y git build-essential devscripts debhelper live-build simple-cdd cdebootstrap curl -y
 
       - name: Clone Kali Linux live-build-config repository
         run: |
-          git clone https://gitlab.com/kalilinux/build-scripts/live-build-config.git
-          cd live-build-config/
+          git clone https://github.com/Spijkervet/Kali-Linux-Live.git
+          cd Kali-Linux-Live
 
       - name: Build Kali Linux ISO
         run: |
-         ./build.sh --verbose
+         ./build.sh --variant i3wm --version 19.3 --verbose
 
       - name: Upload ISO to release
         uses: actions/upload-artifact@v4

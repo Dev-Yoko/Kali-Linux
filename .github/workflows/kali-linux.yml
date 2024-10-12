@@ -12,6 +12,7 @@ jobs:
     strategy:
       matrix:
         release_type: [stable, testing, dev]  # Customizable environment
+    timeout-minutes: 120  # Increase timeout to 2 hours
 
     steps:
       # Checkout repository
@@ -30,7 +31,7 @@ jobs:
       # Install dependencies for building the ISO
       - name: Install Build Dependencies
         run: |
-          sudo apt update
+          sudo apt update -qq  # Quiet update
           sudo apt install -y curl gnupg2 live-build xorriso squashfs-tools genisoimage zip
 
       # Prepare and configure Kali Linux ISO build

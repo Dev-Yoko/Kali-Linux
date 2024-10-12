@@ -1,4 +1,4 @@
-name: Build Kali Linux ISO
+name: Build Kali Linux ISO and Upload to Release
 
 on:
   push:
@@ -6,7 +6,7 @@ on:
       - main
 
 jobs:
-  build-iso:
+  build-and-upload:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -15,30 +15,16 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt update
-          sudo apt install -y git curl wget
+          sudo apt install -y git build-essential devscripts debhelper
 
       - name: Clone Kali Linux repository
         run: |
-          git clone https://github.com/Spijkervet/Kali-Linux-Live.git
-          cd Kali-Linux-Live
-
-      - name: Configure Kali Linux build
-        run: |
-          # Customize Kali Linux build (e.g., add packages, change shell)
-          echo "deb http://http.kali.org/kali kali-rolling main non-free contrib" | sudo tee /etc/apt/sources.list
-          sudo apt update
-          sudo apt install -y kali-linux-default
-          sudo apt install -y $(curl -s https://raw.githubusercontent.com/Spijkervet/Kali-Linux-Live/master/config/packages.txt)
-          sudo apt install -y $(curl -s https://raw.githubusercontent.com/Spijkervet/Kali-Linux-Live/master/config/extra-packages.txt)
-          sudo apt install -y sysmon procdump
-          sudo apt install -y escobar
-          sudo chsh -s /bin/bash
-          sudo echo "set nocompatible" >> ~/.vimrc
+          git clone https://gitlab.com/kalilinux/build-scripts.git
+          cd build-scripts
 
       - name: Build Kali Linux ISO
         run: |
-          # Build Kali Linux ISO using the official custom ISO method
-          sudo./build.sh
+         ./build.sh --variant kali-linux --arch amd64 --iso
 
       - name: Upload ISO to release
         uses: actions/upload-artifact@v2
@@ -50,10 +36,9 @@ jobs:
         uses: actions/create-release@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          release_name: Kali Linux Custom ISO
+          release_name: Kali Linux ISO
           release_body: |
-            This is a custom Kali Linux ISO built using GitHub Actions.
-            It includes additional packages and customizations.
+            This is an automated release of Kali Linux ISO.
           draft: false
           prerelease: false
 
@@ -63,4 +48,4 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           release_id: ${{ steps.create-release.outputs.release_id }}
           file: kali-linux-*.iso
-          name: kali-linux-iso
+          file_name: kali-linux-iso

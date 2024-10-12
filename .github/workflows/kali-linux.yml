@@ -1,105 +1,66 @@
-name: Build, Test, and Release Custom Kali Linux ISO
+name: Build Kali Linux ISO
 
 on:
   push:
-    tags:
-      - 'v*.*.*'  # Build on version tags
-  workflow_dispatch:  # Manual trigger
+    branches:
+      - main
 
 jobs:
-  build:
+  build-iso:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        release_type: [stable, testing, dev]  # Customizable environment
-    timeout-minutes: 120  # Increase timeout to 2 hours
-
     steps:
-      # Checkout repository
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
 
-      # Set up caching for package manager (APT)
-      - name: Cache APT Packages
-        uses: actions/cache@v3
-        with:
-          path: /var/cache/apt
-          key: apt-cache-${{ runner.os }}-${{ hashFiles('**/config/*.sh') }}
-          restore-keys: |
-            apt-cache-${{ runner.os }}
-
-      # Install dependencies for building the ISO
-      - name: Install Build Dependencies
+      - name: Install dependencies
         run: |
-          sudo apt update -qq  # Quiet update
-          sudo apt install -y curl gnupg2 live-build xorriso squashfs-tools genisoimage zip
+          sudo apt update
+          sudo apt install -y git curl wget
 
-      # Prepare and configure Kali Linux ISO build
-      - name: Configure Custom Kali Linux ISO
+      - name: Clone Kali Linux repository
         run: |
           git clone https://github.com/Spijkervet/Kali-Linux-Live.git
-
-      # Build the custom ISO
-      - name: Build the ISO
-        run: |
           cd Kali-Linux-Live
-          ./build.sh --variant i3wm --version 19.3 --verbose
 
-      # Cache the build directory to speed up future builds
-      - name: Cache Build Directory
-        uses: actions/cache@v3
-        with:
-          path: kali-iso
-          key: kali-build-${{ runner.os }}-${{ matrix.release_type }}-${{ github.sha }}
-          restore-keys: |
-            kali-build-${{ runner.os }}-${{ matrix.release_type }}
-
-      # Rename and compress the ISO
-      - name: Rename and Compress ISO
+      - name: Configure Kali Linux build
         run: |
-          ISO_NAME="kali-linux-${{ matrix.release_type }}-${{ github.sha }}.iso"
-          mv kali-iso/*.iso $ISO_NAME
-          zip $ISO_NAME.zip $ISO_NAME
+          # Customize Kali Linux build (e.g., add packages, change shell)
+          echo "deb http://http.kali.org/kali kali-rolling main non-free contrib" | sudo tee /etc/apt/sources.list
+          sudo apt update
+          sudo apt install -y kali-linux-default
+          sudo apt install -y $(curl -s https://raw.githubusercontent.com/maaaaz/dotfiles/master/debian_ubuntu_packages.txt)
+          sudo apt install -y $(curl -s https://raw.githubusercontent.com/maaaaz/dotfiles/master/kali_missing_packages.txt)
+          sudo apt install -y sysmon procdump
+          sudo apt install -y escobar
+          sudo chsh -s /bin/bash
+          sudo echo "set nocompatible" >> ~/.vimrc
 
-      # Generate checksum (SHA256) for the ISO
-      - name: Generate Checksum
+      - name: Build Kali Linux ISO
         run: |
-          sha256sum $ISO_NAME > $ISO_NAME.sha256
+          # Build Kali Linux ISO using the official custom ISO method
+          sudo ./build.sh
 
-      # Test the generated ISO (optional, depends on your test environment)
-      - name: Test the ISO (Optional)
-        run: |
-          # Here you could run some automated tests on the ISO (e.g., mount it and check contents)
-          echo "Running basic tests on the ISO"
-          ls -lh $ISO_NAME
-          file $ISO_NAME
-          # Additional test logic can be added here (e.g., boot the ISO in a VM)
-
-      # Upload the ISO, checksum, and changelog to GitHub release
-      - name: Upload Release Assets
-        uses: softprops/action-gh-release@v1
+      - name: Upload ISO to release
+        uses: actions/upload-artifact@v2
         with:
-          files: |
-            $ISO_NAME
-            $ISO_NAME.zip
-            $ISO_NAME.sha256
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          name: kali-linux-iso
+          path: kali-linux-*.iso
 
-  changelog:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Generate Changelog
-        uses: TriPSs/conventional-changelog-action@v3
+      - name: Create release
+        uses: actions/create-release@v1
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          release_name: Kali Linux Custom ISO
+          release_body: |
+            This is a custom Kali Linux ISO built using GitHub Actions.
+            It includes additional packages and customizations.
+          draft: false
+          prerelease: false
 
-      - name: Upload Changelog to Release
+      - name: Upload ISO to release
         uses: actions/upload-release-asset@v1
         with:
-          upload_url: ${{ needs.build.outputs.upload_url }}
-          asset_path: CHANGELOG.md
-          asset_name: "CHANGELOG-${{ github.sha }}.md"
-          asset_content_type: text/markdown
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          release_id: ${{ steps.create-release.outputs.release_id }}
+          file: kali-linux-*.iso
+          name: kali-linux-iso

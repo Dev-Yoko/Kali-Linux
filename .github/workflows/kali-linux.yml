@@ -36,9 +36,9 @@ jobs:
       # Prepare and configure Kali Linux ISO build
       - name: Configure Custom Kali Linux ISO
         run: |
-          mkdir -p kali-iso
+          mkdir -p kali-iso/config/package-lists
           cd kali-iso
-          lb config --archive-areas "main contrib non-free" --distribution kali-rolling --binary-images iso-hybrid
+          lb config --iso-volume "KaliLinux" --archive-areas "main contrib non-free" --distribution kali-rolling --binary-images iso-hybrid
           echo "kali-linux-large" > config/package-lists/kali.list.chroot  # You can change packages here
           echo "vlc nmap metasploit-framework python3 python3-pip wireshark" >> config/package-lists/kali.list.chroot
 
@@ -46,7 +46,7 @@ jobs:
       - name: Build the ISO
         run: |
           cd kali-iso
-          lb build
+          sudo lb build
 
       # Cache the build directory to speed up future builds
       - name: Cache Build Directory

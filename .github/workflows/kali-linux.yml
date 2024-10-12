@@ -37,17 +37,13 @@ jobs:
       # Prepare and configure Kali Linux ISO build
       - name: Configure Custom Kali Linux ISO
         run: |
-          mkdir -p kali-iso/config/package-lists
-          cd kali-iso
-          lb config --iso-volume "KaliLinux" --archive-areas "main contrib non-free" --distribution kali-rolling --binary-images iso-hybrid
-          echo "kali-linux-large" > config/package-lists/kali.list.chroot  # You can change packages here
-          echo "vlc nmap metasploit-framework python3 python3-pip wireshark" >> config/package-lists/kali.list.chroot
+          git clone https://github.com/Spijkervet/Kali-Linux-Live.git
 
       # Build the custom ISO
       - name: Build the ISO
         run: |
-          cd kali-iso
-          sudo lb build
+          cd Kali-Linux-Live
+          ./build.sh --variant i3wm --version 19.3 --verbose
 
       # Cache the build directory to speed up future builds
       - name: Cache Build Directory
